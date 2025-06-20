@@ -5,8 +5,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/kanishkraj-ops/Neko/stargazers"><img src="https://img.shields.io/github/stars/kanishkraj-ops/Neko?style=social"></a>
-  <a href="https://github.com/kanishkraj-ops/Neko/issues"><img src="https://img.shields.io/github/issues/kanishkraj-ops/Neko"></a>
   <img src="https://img.shields.io/badge/Python-3.6%2B-blue.svg">
   <img src="https://img.shields.io/badge/License-MIT-yellow.svg">
 </p>
@@ -136,7 +134,7 @@ This tool is developed strictly for **educational purposes** and **authorized pe
 ## 🧠 Author
 
 Built with passion by **Kanishk Raj** 🛠️  
-[GitHub](https://github.com/kanishkraj-ops) • [LinkedIn](https://www.linkedin.com/in/kanishkraj/) 
+[GitHub](https://github.com/kanishkraj-ops) • [LinkedIn](https://www.linkedin.com/in/kanishk-raj-841715332/) 
 
 ➡️ Contributions, issues, and stars ⭐ are always welcome!
 
