@@ -4,6 +4,13 @@
     Designed for file transfer, command execution, and remote shell access.
 </p>
 
+<p align="center">
+  <a href="https://github.com/kanishkraj-ops/Neko/stargazers"><img src="https://img.shields.io/github/stars/kanishkraj-ops/Neko?style=social"></a>
+  <a href="https://github.com/kanishkraj-ops/Neko/issues"><img src="https://img.shields.io/github/issues/kanishkraj-ops/Neko"></a>
+  <img src="https://img.shields.io/badge/Python-3.6%2B-blue.svg">
+  <img src="https://img.shields.io/badge/License-MIT-yellow.svg">
+</p>
+
 ---
 
 ## 🔧 Features
@@ -22,17 +29,21 @@
 ### 🔗 Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/neko-cli.git
-cd neko-cli
+git clone https://github.com/kanishkraj-ops/Neko.git
+cd Neko
 ```
 
-### 🐍 Install with `pip`
+### 🐍 Install with `pip` or `pipx`
 
 ```bash
+# Using pip
 pip install .
+
+# Using pipx (recommended for CLI tools)
+pipx install .
 ```
 
-✅ Now you can run `neko` from anywhere in your terminal.
+✅ Once installed, you can run `neko` from anywhere in your terminal.
 
 ---
 
@@ -46,15 +57,11 @@ neko --help
 
 ### 🖥️ Start Listener (Server Mode)
 
-Start an interactive shell on your machine:
-
 ```bash
 neko --listen --port 5555 --command
 ```
 
 ### 📡 Connect to Target (Client Mode)
-
-Connect to the server's IP and port:
 
 ```bash
 neko --target 192.168.1.100 --port 5555
@@ -107,7 +114,7 @@ neko --target 192.168.1.100 --port 6666
 ## 📁 Project Structure
 
 ```
-neko-cli/
+Neko/
 ├── neko/
 │   ├── __init__.py
 │   └── cli.py
@@ -121,14 +128,17 @@ neko-cli/
 
 ## ⚠️ Disclaimer
 
-This tool is developed strictly for **educational purposes** and **authorized penetration testing** only. Unauthorized access to systems or misuse of this tool is **illegal and unethical**. Use responsibly.
+This tool is developed strictly for **educational purposes** and **authorized penetration testing** only.  
+**Unauthorized use is illegal and unethical. Please use responsibly.**
 
 ---
 
 ## 🧠 Author
 
-Built with passion by [Your Name].
+Built with passion by **Kanishk Raj** 🛠️  
+[GitHub](https://github.com/kanishkraj-ops) • [LinkedIn](https://www.linkedin.com/in/kanishkraj/) 
 
 ➡️ Contributions, issues, and stars ⭐ are always welcome!
 
 ---
+
