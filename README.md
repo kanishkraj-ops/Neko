@@ -28,7 +28,7 @@
 
 ```bash
 git clone https://github.com/kanishkraj-ops/Neko.git
-cd Neko
+cd neko
 ```
 
 ### 🐍 Install with `pip` or `pipx`
