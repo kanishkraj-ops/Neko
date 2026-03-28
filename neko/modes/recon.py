@@ -7,6 +7,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 from ..utils.logger import get_logger
 from ..utils.reporter import NekoReporter
+from ..utils.config import get_config
 
 try:
     import dns.resolver
@@ -19,12 +20,14 @@ except ImportError:
     whois = None
 
 logger = get_logger()
+config = get_config()
 
 class ReconMode:
     def __init__(self, args):
         self.args = args
         self.results = {}
         self.reporter = NekoReporter(args.output) if args.output else None
+        self.threads = getattr(self.args, 'threads', config.get('threads', 20))
 
     def run(self):
         logger.info(f"Starting reconnaissance on {self.args.target}")
@@ -55,10 +58,10 @@ class ReconMode:
             logger.error("Invalid port range format. Use e.g. 1-1024")
             return
 
-        logger.info(f"Scanning ports {start_port}-{end_port} on {target}...")
+        logger.info(f"Scanning ports {start_port}-{end_port} on {target} with {self.threads} threads...")
         open_ports = []
         
-        with ThreadPoolExecutor(max_workers=100) as executor:
+        with ThreadPoolExecutor(max_workers=self.threads) as executor:
             futures = [executor.submit(self._scan_single_port, target, port) for port in range(start_port, end_port + 1)]
             for future in futures:
                 result = future.result()
@@ -67,18 +70,28 @@ class ReconMode:
         
         self.results['ports'] = open_ports
         for p in open_ports:
-            logger.success(f"Port {p['port']}/tcp OPEN ({p['service']}) - Banner: {p['banner']}")
+            # Service detection output
+            service_info = f"{p['port']}/tcp OPEN ({p['service']})"
+            if p['banner']:
+                service_info += f" - [banner] {p['banner']}"
+            logger.success(service_info)
 
     def _scan_single_port(self, target, port):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(1.0)
+                s.settimeout(1.5)
+                # Quick connect check
                 if s.connect_ex((target, port)) == 0:
                     banner = ""
                     try:
-                        # Attempt banner grabbing
-                        s.send(b"HEAD / HTTP/1.0\r\n\r\n")
-                        banner = s.recv(1024).decode(errors='ignore').strip().replace('\n', ' ')[:50]
+                        # Grab banner by waiting and receiving
+                        # Some services require a probe (like HTTP)
+                        if port in [80, 443, 8080]:
+                            s.send(b"HEAD / HTTP/1.0\r\n\r\n")
+                            
+                        banner_data = s.recv(1024)
+                        if banner_data:
+                            banner = banner_data.decode(errors='ignore').strip().replace('\n', ' ')[:60]
                     except:
                         pass
                     
@@ -99,7 +112,7 @@ class ReconMode:
 
     def dns_enum(self):
         if not dns:
-            logger.error("dnspython is not installed. Use 'pip install dnspython' for DNS enumeration.")
+            logger.warning("dnspython is not installed. Use 'pip install dnspython' for DNS enumeration.")
             return
 
         target = self.args.target
@@ -120,38 +133,29 @@ class ReconMode:
 
     def whois_lookup(self):
         if not whois:
-             logger.error("whois is not installed. Use 'pip install python-whois' for WHOIS lookup.")
+             logger.warning("whois is not installed. Use 'pip install python-whois' for WHOIS lookup.")
              return
              
         target = self.args.target
         logger.info(f"Performing WHOIS lookup for {target}...")
         try:
             w = whois.whois(target)
-            # Convert to dict for reporting
             whois_data = {
                 "domain_name": str(w.domain_name),
                 "registrar": str(w.registrar),
-                "creation_date": str(w.creation_date),
-                "expiration_date": str(w.expiration_date),
-                "emails": str(w.emails)
+                "registrant": str(w.registrant),
+                "emails": str(w.emails),
+                "org": str(w.org)
             }
             self.results['whois'] = whois_data
-            logger.success(f"Registrar: {whois_data['registrar']}")
-            logger.success(f"Creation: {whois_data['creation_date']}")
+            if w.org: logger.success(f"Org: {w.org}")
+            if w.registrar: logger.success(f"Registrar: {w.registrar}")
         except Exception as e:
             logger.error(f"WHOIS lookup failed: {e}")
 
     def ping_sweep(self):
         target_network = self.args.target
-        logger.info(f"Performing ping sweep on {target_network}...")
-        # Basic implementation for CIDR or range
-        # For simplicity, we'll assume target is a single IP or user knows what they are doing
-        # A full ping sweep implementation usually requires ipaddress module and ICMP
-        # Here we'll just check the single target or provide a placeholder for subnet logic
-        if '/' in target_network:
-             logger.warning("Subnet sweep requested. This might take a while...")
-             # In a real tool, we'd iterate over the subnet.
-             # For this demo, let's just ping the target.
+        logger.info(f"Checking host: {target_network}")
         
         is_windows = os.name == 'nt'
         ping_cmd = ["ping", "-n" if is_windows else "-c", "1", "-w", "1000", target_network]
@@ -168,10 +172,12 @@ class ReconMode:
             logger.error(f"Ping sweep error: {e}")
 
     def print_summary(self):
-        logger.info("--- Recon Summary ---")
+        print("\n" + "="*40)
+        logger.info("Reconnaissance Summary")
         if 'ports' in self.results:
             logger.info(f"Open Ports: {len(self.results['ports'])}")
         if 'dns' in self.results:
             logger.info(f"DNS Records found: {sum(len(v) for v in self.results['dns'].values())}")
         if 'whois' in self.results:
             logger.info("WHOIS data retrieved.")
+        print("="*40 + "\n")

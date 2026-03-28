@@ -1,49 +1,51 @@
 <h1 align="center">🐾 Neko Security Framework</h1>
 <p align="center">
-    A powerful multi-mode offensive security framework written in Python.<br>
-    Designed for reconnaissance, OSINT, exploitation aids, and authorized penetration testing.
+    A production-grade, multi-mode offensive security framework written in Python.<br>
+    Built for scale, speed, and real-world penetration testing.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.7%2B-blue.svg">
+  <img src="https://img.shields.io/badge/Python-3.8%2B-blue.svg">
   <img src="https://img.shields.io/badge/License-MIT-yellow.svg">
-  <img src="https://img.shields.io/badge/Version-2.0.0--beta-red.svg">
+  <img src="https://img.shields.io/badge/Version-2.1.0-red.svg">
+  <img src="https://img.shields.io/badge/Status-Production--Grade-green.svg">
 </p>
 
 ---
 
 ## 🔧 Features
 
-Neko has been upgraded from a simple netcat tool to a modular framework:
+Neko v2.1.0 is a complete redesign focused on modularity and performance:
 
-- 📡 **Core**: Netcat-style listeners, reverse shells, and file transfers (Legacy compatible).
-- 🔍 **Recon**: Port scanning, service detection, DNS enumeration, and WHOIS lookups.
-- 🕵️ **Search**: CVE searching, Shodan integration, Google dorking, and subdomain enumeration.
-- 🧨 **Exploit**: Reverse shell payload generator (Bash, Python, PHP, PowerShell), HTTP payload hosting, and C2 mode.
-- ⚔️ **Attack**: TCP/UDP flooding, SSH/HTTP brute-forcing, and directory brute-forcing.
-- 📊 **Reporting**: Export results to JSON or CSV.
-- 🐍 **Modular**: Clean Pythonic architecture with colored terminal output.
+- 📡 **Core**: High-performance Netcat logic with interactive shell and file transfer.
+- 🔍 **Recon**: Multi-threaded port scanner with banner grabbing and DNS enumeration.
+- 🕵️ **Search**: CVE lookup (NVD API) with CVSS scores and Severity ratings. Shodan integration.
+- 🧨 **Exploit**: Non-blocking HTTP payload server with real-time victim logging.
+- ⚔️ **Attack**: Stress testing (TCP/UDP flood) with real-time PPS stats and brute-force.
+- 🧩 **Plugin System**: Dynamically load your own security modules.
+- ⚙️ **Configurable**: Global settings managed in `~/.neko/config.json`.
+- 📊 **Reporting**: Structured JSON and CSV exports for all scan data.
 
 ---
 
 ## 📦 Installation
 
-### 🔗 Clone the Repository
+### 🐍 Recommended: Using `pipx` (Global Access)
 
 ```bash
+# Clone and install globally
 git clone https://github.com/kanishkraj-ops/Neko.git
 cd neko
+pipx install .
 ```
 
-### 🐍 Install Dependencies & Tool
+### 🔨 Development: Using `pip`
 
 ```bash
-# Using pip
-pip install .
-
-# Install required external packages
-pip install rich requests dnspython paramiko python-whois shodan
+pip install -e .
 ```
+
+✅ Once installed, you can simply run `neko` from any directory.
 
 ---
 
@@ -53,53 +55,26 @@ Neko uses a subparser system: `neko <mode> [options]`
 
 ### 1️⃣ Recon Mode
 ```bash
-# Port scan a target with service detection
-neko recon -t example.com --scan-ports --range 1-1000
-
-# DNS enumeration and WHOIS lookup
-neko recon -t example.com --dns --whois
+# Fast port scan with banner grabbing
+neko recon -t example.com --scan-ports --range 1-1000 --threads 50
 ```
 
 ### 2️⃣ Search Mode
 ```bash
-# Search for CVEs related to a product
-neko search --cve "apache 2.4.49"
-
-# Generate Google Dorks for a domain
-neko search -t example.com --dorks
-
-# Subdomain enumeration (requires wordlist)
-neko search -t example.com --subdomains --wordlist wordlist.txt
+# Search for vulnerabilities with CVSS scores
+neko search --cve "log4j"
 ```
 
 ### 3️⃣ Exploit Mode
 ```bash
-# Generate a Python reverse shell payload (Base64 encoded)
-neko exploit --revshell --lhost 192.168.1.10 --lport 4444 --type python --encode b64
-
-# Host a payload directory via HTTP
+# Start HTTP payload server with victim monitoring
 neko exploit --serve --port 8080 --dir ./payloads
 ```
 
 ### 4️⃣ Attack Mode
 ```bash
-# SSH Brute-force
-neko attack -t 192.168.1.100 --bruteforce ssh --user root --wordlist rockyou.txt
-
-# HTTP Directory Brute-force
-neko attack -t http://example.com --dirbrute --wordlist common.txt
-
-# TCP Flood (Stress Test)
+# Run a 30s TCP flood with live stats
 neko attack -t 192.168.1.100 --flood --port 80 --duration 30
-```
-
-### 5️⃣ Core Mode (Netcat Logic)
-```bash
-# Start a listener with a command shell (Legacy style)
-neko core --listen --port 5555 --command
-
-# Connect to a target
-neko core --target 192.168.1.100 --port 5555
 ```
 
 ---
@@ -109,21 +84,22 @@ neko core --target 192.168.1.100 --port 5555
 ```
 Neko/
 ├── neko/
-│   ├── cli.py           # Main entry point
-│   ├── core.py          # Netcat logic
-│   ├── modes/           # Feature-specific modules
-│   │   ├── recon.py
-│   │   ├── search.py
-│   │   ├── exploit.py
-│   │   └── attack.py
-│   └── utils/           # Shared utilities
-│       ├── logger.py    # Colored output
-│       ├── reporter.py  # JSON/CSV export
-│       └── encoder.py   # Payload encoding
-├── setup.py
-├── pyproject.toml
+│   ├── cli.py           # Improved CLI entry point
+│   ├── core/            # Listener and network logic
+│   ├── modes/           # Modular toolsets (Recon, Search, etc.)
+│   ├── utils/           # Shared utilities (Logger, Config, Loader)
+│   └── plugins/         # Dynamic module directory
+├── pyproject.toml       # Modern packaging configuration
 └── README.md
 ```
+
+---
+
+## 🛡️ Security & Safety
+
+> [!CAUTION]
+> **Neko v2.1.0 implements safety confirmation prompts for all destructive actions.**
+> To bypass these prompts in automated environments, use the `--force` flag.
 
 ---
 
@@ -139,9 +115,3 @@ Neko/
 
 Built with passion by **Kanishk Raj** 🛠️  
 [GitHub](https://github.com/kanishkraj-ops) • [LinkedIn](https://www.linkedin.com/in/kanishk-raj-841715332/) 
-
-➡️ Contributions, issues, and stars ⭐ are always welcome!
-
-
----
-

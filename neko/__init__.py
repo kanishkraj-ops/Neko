@@ -1,2 +1,3 @@
-__version__ = "1.0.0"
-__author__ = "Kanishk"
+from .cli import main, __version__, __author__
+
+__all__ = ["main", "__version__", "__author__"]
