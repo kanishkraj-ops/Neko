@@ -4,7 +4,7 @@ import shlex
 import sys
 import threading
 import os
-from .utils.logger import get_logger
+from neko.utils.logger import get_logger
 
 logger = get_logger()
 
